@@ -197,20 +197,20 @@ for i in tbar:
         print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts)
 
     if i > stage_cutoffs[0] and i < stage_cutoffs[2]:
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.grid.grad *= 1.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
+        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
     elif i > stage_cutoffs[2] and i < stage_cutoffs[3]:
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.grid.grad *= 0.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 0.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 0.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 0.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 0.
+        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 0.
     elif i > stage_cutoffs[3]:
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.grid.grad *= 1.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
+        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
 
     # Update parameters 
     optimizer.step()
