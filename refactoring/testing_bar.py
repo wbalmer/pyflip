@@ -104,7 +104,7 @@ optimizer_argument = [
         {'params': opds, 'lr': 4e-9},
         {'params': star_position, 'lr': 4e-8},
         {'params': detector_flats, 'lr': 4e-6},
-        {'params': lyot_geom, 'lr':4e-8}
+        # {'params': lyot_geom, 'lr':4e-8}
     ]
 
 optimizer = torch.optim.AdamW(optimizer_argument, weight_decay=0.0)
@@ -190,27 +190,27 @@ for i in tbar:
 
     default_stages(diffnircam, wavefront_broad, i, stage_cutoffs=stage_cutoffs) # Zero-out (in-place) gradients of parameters we are not fitting at a given stage
 
-    if i == 0:
-        print(wavefront_broad.angles_offset.grad)
-        print(wavefront_broad.angles_offset)
-        print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad)
-        print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts)
+    # if i == 0:
+    #     print(wavefront_broad.angles_offset.grad)
+    #     print(wavefront_broad.angles_offset)
+    #     print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad)
+    #     print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts)
 
-    if i > stage_cutoffs[0] and i < stage_cutoffs[2]:
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
-    elif i > stage_cutoffs[2] and i < stage_cutoffs[3]:
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 0.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 0.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 0.
-        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 0.
-    elif i > stage_cutoffs[3]:
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
-        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
+    # if i > stage_cutoffs[0] and i < stage_cutoffs[2]:
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
+    #     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
+    # elif i > stage_cutoffs[2] and i < stage_cutoffs[3]:
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 0.
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 0.
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 0.
+    #     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 0.
+    # elif i > stage_cutoffs[3]:
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
+    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
+    #     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
 
     # Update parameters 
     optimizer.step()
@@ -241,10 +241,10 @@ for i in tbar:
         track_iters.append(i)
 
         # also track lyot parameters
-        lyot_rots.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.detach().cpu().numpy())
-        lyot_xs.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.detach().cpu().numpy())
-        lyot_ys.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.detach().cpu().numpy())
-        lyot_scales.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.detach().cpu().numpy())
+        # lyot_rots.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.detach().cpu().numpy())
+        # lyot_xs.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.detach().cpu().numpy())
+        # lyot_ys.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.detach().cpu().numpy())
+        # lyot_scales.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.detach().cpu().numpy())
 
 # After everything, save these diagnostics and such 
 signal_peaks_arr = np.array(signal_peaks_arr)
@@ -252,21 +252,21 @@ signal_losses_arr = np.array(signal_losses_arr)
 snrs_arr = np.array(snrs_arr)
 track_iters = np.array(track_iters)
 
-lyot_rots_arr = np.array(lyot_rots)
-lyot_xs_arr = np.array(lyot_xs)
-lyot_ys_arr = np.array(lyot_ys)
-lyot_scales_arr = np.array(lyot_scales)
+# lyot_rots_arr = np.array(lyot_rots)
+# lyot_xs_arr = np.array(lyot_xs)
+# lyot_ys_arr = np.array(lyot_ys)
+# lyot_scales_arr = np.array(lyot_scales)
 
-np.save(save_dir+'/lyot_rots.npy', lyot_rots_arr)
-np.save(save_dir+'/lyot_xs.npy', lyot_xs_arr)
-np.save(save_dir+'/lyot_xs.npy', lyot_ys_arr)
-np.save(save_dir+'/lyot_scales.npy', lyot_scales_arr)
+# np.save(save_dir+'/lyot_rots.npy', lyot_rots_arr)
+# np.save(save_dir+'/lyot_xs.npy', lyot_xs_arr)
+# np.save(save_dir+'/lyot_xs.npy', lyot_ys_arr)
+# np.save(save_dir+'/lyot_scales.npy', lyot_scales_arr)
 
-plt.figure()
-plt.plot(np.arange(len(lyot_rots_arr)), lyot_rots_arr)
-plt.title(lyot_rots_arr[-1])
-plt.savefig(save_dir+'/lyot_rotation.png')
-plt.close()
+# plt.figure()
+# plt.plot(np.arange(len(lyot_rots_arr)), lyot_rots_arr)
+# plt.title(lyot_rots_arr[-1])
+# plt.savefig(save_dir+'/lyot_rotation.png')
+# plt.close()
 
 
 plt.figure()
