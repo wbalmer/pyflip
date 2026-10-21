@@ -1,9 +1,10 @@
 import torch
-from dl_utils import load_model_data,arcsec2rad
+from dl_utils import load_model_data, arcsec2rad, apply_substrate_transmission
 import numpy as np 
 import torch.nn.functional as F
 import torch.nn as nn
-from optical_elements import DiffPupilOptic, DiffImageOptic, DiffDetector, DiffOpticalSystem
+from optical_elements import DiffPupilOptic, DiffLyotOptic, DiffImageOptic, DiffDetector, DiffOpticalSystem, make_occulter
+from model_classes import OPDOffsetModule
 import astropy.units as u 
 import os 
 import json
@@ -66,7 +67,7 @@ def create_STPSF_model(from_obs=None, instrument='NIRCam', inst_params={'filter'
 
 
 def generate_STPSF_model_params(stpsf_instrument, spec_type='A1V', catalog_spec='phoenix', input_spectrum=None, 
-                                num_wl=21,oversample=2, folder_to_save='mydata',return_data=False):
+                                num_wl=21,oversample=2, folder_to_save='mydata',return_data=False, substrate=True):
     """
     Take a STPSF instrument and create FLIP-friendly model parameters.
 
@@ -86,6 +87,10 @@ def generate_STPSF_model_params(stpsf_instrument, spec_type='A1V', catalog_spec=
 
     As a rule of thumb, we typically use 21 wavelengths for wide filters and 9 wavelengths for medium filters,
     but this has not been rigorously optimized. 
+
+    substrate=True multiplies the band weights by the transmission of the coronagraph mask
+    substrate (module A, measured; see dl_utils.apply_substrate_transmission), which STPSF's
+    weights lack; instrument_config.json records it as 'substrate_in_weights'.
     """
     npix=1024 * int(oversample) # Image plane pixels: this is oversampling of 2. Pupil plane is always in 1024x1024 pixels for simplicity
     
@@ -138,7 +143,9 @@ def generate_STPSF_model_params(stpsf_instrument, spec_type='A1V', catalog_spec=
             wlens_weights.append(psf_nircam_instance[0].header[attribute])
 
     wlen_wlen_we_arr = np.array([wlens, wlens_weights])
-    wlen_wlen_we_arr
+    substrate = substrate and stpsf_instrument.image_mask is not None and stpsf_instrument.module == 'A'
+    if substrate:
+        wlen_wlen_we_arr = apply_substrate_transmission(wlen_wlen_we_arr)
 
     wavelengths_folder = os.path.join(folder_oversample_and_wl_num, 'wlens_weights')
 
@@ -198,6 +205,8 @@ def generate_STPSF_model_params(stpsf_instrument, spec_type='A1V', catalog_spec=
     prop_dict['pupil_rotation'] = stpsf_instrument.options['pupil_rotation']
     prop_dict['img_oversample'] = oversample
     prop_dict['num_wl'] = num_wl 
+    prop_dict['module'] = stpsf_instrument.module
+    prop_dict['substrate_in_weights'] = bool(substrate)
 
     if 'bar_offset' in stpsf_instrument.options.keys():
         prop_dict['bar_offset'] = stpsf_instrument.options['bar_offset'] 
@@ -210,8 +219,21 @@ def generate_STPSF_model_params(stpsf_instrument, spec_type='A1V', catalog_spec=
     else:
         return None
 
-def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,diameter = 6.603464, DEVICE='cuda'):
+def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,diameter = 6.603464, DEVICE='cuda',
+                               oversample=2, wf_npix=1024, fpm_axial_offset=None, fpm_focal_length=None, lyot_axial_offset=None,
+                               babinet=False, mount=True, fpm_raster=None, um_per_arcsec=593.336, band_limited=True):
     """
+    babinet=True applies the focal plane mask through Babinet's principle; mount=False
+    drops its mount regions, and fpm_raster replaces the spot by a mask raster file at
+    um_per_arcsec [um/arcsec]; band_limited=False keeps every raster sample (slow).
+
+    Set fpm_axial_offset [m] and fpm_focal_length [m] to include an axially
+    displaced focal plane mask. Both distances refer to the equivalent optical
+    system with the telescope entrance pupil, rather than mechanical distances
+    inside NIRCam. fpm_axial_offset=None uses the nominal focal plane mask.
+    lyot_axial_offset [m] similarly displaces only the Lyot stop transmission;
+    its OPD stays at the nominal pupil plane. None uses the nominal stop.
+
     Assemble a FLIP NIRCam coron model, given some model parameters.
     Again, quite hard coded:
     - data_dir must be where the data is, and the folder structure must follow what 'generate_STPSF_model_params' generates.
@@ -221,8 +243,7 @@ def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,d
     """
     
     # Set up physical model for the observation being optimized on: load mask designs, known aberrations, etc.
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    wf_npix = 1024
+    DEVICE = torch.device(DEVICE)
     psf_npix = num_det_px
     psf_pixel_scale = psf_pixel_scale # arcsec/pixel, default value in LW channel
 
@@ -232,8 +253,9 @@ def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,d
 
     nircam_OPD = torch.tensor(nircam_OPD, dtype=torch.float64).to(DEVICE)[None]
     lyot = torch.FloatTensor(lyot).to(DEVICE)[None]
-    fpm = torch.FloatTensor(fpm).to(DEVICE)[None]
-    wlen_weights = torch.FloatTensor(wlen_weights).to(DEVICE)
+    if not babinet and (fpm_raster is not None or not mount):
+        raise ValueError('fpm_raster and mount=False need babinet=True')
+    wlen_weights = torch.as_tensor(wlen_weights, dtype=torch.float64, device=DEVICE)
 
     sampledWFEs = torch.from_numpy(sampledWFEs.copy()).float()
     sampledWFEs = F.interpolate(sampledWFEs[:, None], size=(wf_npix, wf_npix), mode='bilinear').squeeze()
@@ -256,9 +278,19 @@ def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,d
     # 3. NIRCam Lyot: Transmission is Lyot stop, OPD is NIRCam wavelength-dependent OPD 
     # 4. NIRCam detector: Projects onto detector with MFT, and applies shifts, BFE, flat fields, etc.
 
-    JWST_primary = DiffPupilOptic(name='JWSTPrimary',opd=entrance_OPD, amplitude=aperture)
-    NIRCam_FPM = DiffImageOptic(name='NIRCam coron focal plane mask',amplitude=fpm)
-    NIRCam_Lyot = DiffPupilOptic(name='NIRCamLyotstop',opd=nircam_OPD, amplitude=lyot)
+    JWST_primary = DiffPupilOptic(name='JWSTPrimary',opd=entrance_OPD, amplitude=aperture,
+                                wfe_offsets=OPDOffsetModule(wf_npix, wf_npix, device=DEVICE))
+    if babinet:
+        NIRCam_FPM = make_occulter(fpm, wlen_weights[0].cpu(), diameter / wf_npix, wf_npix, mount=mount, fpm_raster=fpm_raster,
+                                   um_per_arcsec=um_per_arcsec, band_limited=band_limited, device=DEVICE,
+                                   name='NIRCam coron focal plane mask',
+                                   axial_offset=fpm_axial_offset, focal_length=fpm_focal_length).to(DEVICE)
+    else:
+        NIRCam_FPM = DiffImageOptic(name='NIRCam coron focal plane mask',amplitude=torch.FloatTensor(fpm).to(DEVICE)[None],
+                                  axial_offset=fpm_axial_offset, focal_length=fpm_focal_length)
+    NIRCam_Lyot = DiffLyotOptic(name='NIRCamLyotstop',opd=nircam_OPD, amplitude=lyot,
+                              axial_offset=lyot_axial_offset,
+                              wfe_offsets=OPDOffsetModule(wf_npix, wf_npix, device=DEVICE))
 
     # Big TODO:
     # Now, our detector model applies a sub-pixel shift to align the center of the coronagraph in the 
@@ -288,9 +320,9 @@ def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,d
     elif inst_properties['image_mask'] == 'MASKLWB':
         subpix_x, subpix_y = 0.33,-0.11 # Based on F410M if I remember correctly, but should double check
 
-    NIRCam_detector = DiffDetector(prop_args,shift_x=subpix_x, shift_y=subpix_y, name='NIRCamdetector')
+    NIRCam_detector = DiffDetector(prop_args, oversample=oversample, num_det_px=num_det_px,
+                                  shift_x=subpix_x, shift_y=subpix_y, name='NIRCamdetector', device=DEVICE)
 
-    JWST_NIRCam = DiffOpticalSystem(name='JWSTNIRCamcoron',optical_element_list=[JWST_primary, NIRCam_FPM, NIRCam_Lyot, NIRCam_detector])
+    JWST_NIRCam = DiffOpticalSystem(name='JWSTNIRCamcoron',optical_element_list=[JWST_primary, NIRCam_FPM, NIRCam_Lyot, NIRCam_detector], oversample=oversample)
 
     return JWST_NIRCam
- 

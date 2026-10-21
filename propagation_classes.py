@@ -5,13 +5,14 @@ import numpy as np
 import math 
 from dl_utils import pixel_coords, crop_to, partial_MFT,shift_image_subpixel
 from model_classes import ShiftModule, GridOffsetModule,FlatFieldingModule,PerMirrorZernikes, OPDOffsetModule, FluxOffsetModule,AngleOffsetModule,LinearInterpOPD,PTT_OPD,LearnableGaussianBlur
+from refactoring.optical_elements import DiffImageOptic, DiffLyotOptic
 
 
 
 class Wavefront(nn.Module):
     def __init__(self, npixels: int, diameter: float, wavelength: float, peak_flux: float, angles = None):
         super().__init__()
-        self.wavelength = nn.Parameter(wavelength, requires_grad=False)
+        self.wavelength = nn.Parameter(torch.as_tensor(wavelength, dtype=torch.float64), requires_grad=False)
         self.pixel_scale = nn.Parameter(torch.from_numpy(np.asarray(diameter / npixels, float)), requires_grad=False)
         self.wavenumber = 2 * np.pi / self.wavelength
         self.npixels = npixels
@@ -104,7 +105,7 @@ class Wavefront(nn.Module):
 class BroadbandWavefront(nn.Module):
     def __init__(self, npixels: int, diameter: float, wavelength: list, peak_flux: float, angles = None, DEVICE='cuda'):
         super().__init__()
-        self.wavelengths = nn.Parameter(torch.tensor(wavelength), requires_grad=False).to(DEVICE)
+        self.wavelengths = nn.Parameter(torch.as_tensor(wavelength, dtype=torch.float64, device=DEVICE), requires_grad=False)
         self.pixel_scale = nn.Parameter(torch.from_numpy(np.asarray(diameter / npixels, float)), requires_grad=False)
         self.wavenumbers = 2 * np.pi / self.wavelengths
         self.npixels = npixels
@@ -189,12 +190,28 @@ class BroadbandWavefront(nn.Module):
         return new_phasor
 
     def forward_wfes(self, phasors, layer, wlens):
-        wfe = torch.exp(1j * layer.unsqueeze(0) * 2 * np.pi / wlens.unsqueeze(1).unsqueeze(2))
+        wfe = torch.exp(1j * layer.unsqueeze(0) * 2 * np.pi / wlens.unsqueeze(1).unsqueeze(2)).to(phasors.dtype)
         new_phasor = phasors * wfe
         return new_phasor
 
 class PointPropagate(nn.Module):
-    def __init__(self, aperture, lyot, fpm, nircam_opd, args,oversample=None, use_ptt = None,OTE_wfe_basis=None,second_delta_wfe=None, num_det_px = 80):
+    """Original optical pipeline with optional axial mask displacement.
+
+    Parameters
+    ----------
+    fpm_axial_offset, lyot_axial_offset : torch.nn.Parameter, optional
+        Shared fitted displacements [primary-equivalent m]. None keeps the
+        corresponding mask in its nominal plane.
+    focal_length : float
+        Equivalent focal length [m] used for FPM displacement.
+    occulter : BabinetImageOptic, optional
+        Focal plane mask applied through Babinet's principle. None uses the
+        transmission `fpm` on the full padded focal grid.
+    dtype : torch.dtype, optional
+        Complex dtype of the fields; None keeps the inputs' precision.
+    """
+    def __init__(self, aperture, lyot, fpm, nircam_opd, args,oversample=None, use_ptt = None,OTE_wfe_basis=None,second_delta_wfe=None, num_det_px = 80,
+                 fpm_axial_offset=None, lyot_axial_offset=None, focal_length=131.4, occulter=None, dtype=None):
         super().__init__()
         self.aperture = aperture
         self.lyot = lyot
@@ -205,8 +222,23 @@ class PointPropagate(nn.Module):
             oversample = 1
         self.oversample = oversample
 
+        self.fpm_optic = None
+        self.lyot_optic = None
+        if fpm_axial_offset is not None and focal_length <= 0:
+            raise ValueError('FPM displacement requires a positive equivalent focal length')
+        if occulter is not None:
+            self.fpm_optic = occulter
+        elif fpm_axial_offset is not None or lyot_axial_offset is not None:
+            self.fpm_optic = DiffImageOptic(amplitude=fpm)
+        if self.fpm_optic is not None:
+            self.fpm_optic.focal_length = focal_length
+            self.fpm_optic.axial_offset = fpm_axial_offset
+            self.lyot_optic = DiffLyotOptic(amplitude=lyot, wfe_offsets=nn.Identity())
+            self.lyot_optic.axial_offset = lyot_axial_offset
+
         self.lyot_shifts = ShiftModule(lyot.shape[-2], lyot.shape[-1])
-        self.fpm_shifts = ShiftModule(fpm.shape[-2], fpm.shape[-1])
+        if self.lyot_optic is not None:
+            self.lyot_optic.pupil_shifts = self.lyot_shifts
         
         self.nircam_offsets = GridOffsetModule(nircam_opd.shape[-2], nircam_opd.shape[-1])
 
@@ -234,9 +266,25 @@ class PointPropagate(nn.Module):
             args = (npixels, wavelengths[i].item(), true_pixel_scale, psf_npix*self.oversample, psf_pixel_scale/self.oversample, focal_length, shift, pixel, inverse)
             x_mat, y_mat, mult = partial_MFT(*args)
             xmats.append(x_mat); ymats.append(y_mat); mults.append(torch.tensor(mult, dtype=torch.float64))
-        self.x_mat = nn.Parameter(torch.stack(xmats), requires_grad=False)
-        self.y_mat = nn.Parameter(torch.stack(ymats), requires_grad=False)
+        self.dtype = dtype
+        self.x_mat = nn.Parameter(torch.stack(xmats).to(dtype or xmats[0].dtype), requires_grad=False)
+        self.y_mat = nn.Parameter(torch.stack(ymats).to(dtype or ymats[0].dtype), requires_grad=False)
         self.mult = nn.Parameter(torch.stack(mults), requires_grad=False)
+
+    def propagate_masks(self, phasors, wavefront):
+        """Apply the focal plane mask and Lyot stop to the pupil field."""
+        if self.fpm_optic is None:
+            focal_return = wavefront.forward_fpm(phasors, self.fpm, oversample=self.oversample)
+            return wavefront.forward(focal_return, self.lyot_shifts(self.lyot))
+        if isinstance(self.fpm_optic, DiffImageOptic):
+            self.fpm_optic.amplitude = self.fpm
+        full_pupil = self.lyot_optic.axial_offset is not None
+        returned = self.fpm_optic(phasors, wavefront.npixels, self.oversample,
+                                  wavelengths=wavefront.wavelengths, d_pupil=wavefront.pixel_scale,
+                                  crop_output=not full_pupil)
+        if full_pupil:
+            return self.lyot_optic.displaced_stop(returned, wavefront.wavelengths, wavefront.pixel_scale)
+        return wavefront.forward(returned, self.lyot_shifts(self.lyot))
 
     # making changes here
     def forward(self, broadbandwavefront, wfe,wavelengths, wl_weights):
@@ -246,15 +294,15 @@ class PointPropagate(nn.Module):
             wfe_ = self.second_wfe_offsets(wfe_)
 
         phasors = broadbandwavefront.get_phasors(self.angle_offsets())
+        if self.dtype is not None:
+            phasors = phasors.to(self.dtype)
         phasors = broadbandwavefront.forward_wfes(phasors, wfe_, broadbandwavefront.wavelengths)
         phasors_ap = broadbandwavefront.forward(phasors, self.aperture, normalize=True)
-        phasors_fpm = broadbandwavefront.forward_fpm(phasors_ap, self.fpm,oversample=self.oversample)
-
-        phasors_lyot = broadbandwavefront.forward(phasors_fpm, self.lyot_shifts(self.lyot))
+        phasors_lyot = self.propagate_masks(phasors_ap, broadbandwavefront)
         phasors_nircam_opd = broadbandwavefront.forward_wfes(phasors_lyot, self.nircam_offsets(self.nircam_opd), broadbandwavefront.wavelengths)
         phasor = (self.y_mat.transpose(-2, -1) @ phasors_nircam_opd) @ self.x_mat
 
-        phasor *= self.mult.view(1, 1, -1, 1, 1)
+        phasor = phasor * self.mult.view(1, 1, -1, 1, 1).to(phasor.real.dtype)
         w = (broadbandwavefront.peak_flux) ** 0.5
         out = (torch.abs(phasor) * w) ** 2 
 

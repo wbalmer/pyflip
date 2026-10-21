@@ -297,7 +297,13 @@ def weighted_smooth_l1_loss(pred, obs, noise, beta=1.0, reduction='mean'):
     else:
         return weighted_loss
 
-def load_model_data(data_dir):
+def load_model_data(data_dir, substrate=True):
+    """Model files of a directory made by generate_STPSF_model_params.
+
+    substrate=True weights the band by the coronagraph mask substrate's transmission
+    (apply_substrate_transmission) unless instrument_config.json records it as already in
+    the weights; only for module A coronagraphy.
+    """
     basic_masks_dir = os.path.join(data_dir, 'pupil_masks')
 
     aperture = np.load(f'{basic_masks_dir}/primary_transmission.npy')
@@ -312,6 +318,11 @@ def load_model_data(data_dir):
     data_dir_wldep = os.path.join(data_dir, f'wavelength_dependents')
 
     wlens_weights = np.load(os.path.join(data_dir_wldep, 'wlens_weights', 'lambda_weights.npy'))
+    config_path = os.path.join(data_dir, 'instrument_config.json')
+    config = json.load(open(config_path)) if os.path.exists(config_path) else {}
+    if (substrate and config.get('image_mask') and config.get('module', 'A') == 'A'
+            and not config.get('substrate_in_weights', False)):
+        wlens_weights = apply_substrate_transmission(wlens_weights)
     fpm, nircam_opd = [], []
     for i in range(len(wlens_weights[0])):
         currfpm = np.load(f'{data_dir_wldep}/image_mask_transmissions/image_mask_transmission_{i}.npy')
@@ -323,6 +334,41 @@ def load_model_data(data_dir):
     nircam_opd = np.array(nircam_opd)
 
     return aperture, lyot, fpm, nircam_opd, wlens_weights, sampledWFEs
+
+
+# NIRCam module A coronagraph mask substrate, measured by J. Krist (2015-10-28); see data/coron_substrate/README.md.
+COM_SUBSTRATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'coron_substrate',
+                                  'jwst_nircam_moda_com_substrate_trans.fits')
+
+
+def apply_substrate_transmission(wlen_weights, path=COM_SUBSTRATE_FILE):
+    """Band weights multiplied by the transmission of the coronagraph mask substrate.
+
+    Parameters
+    ----------
+    wlen_weights : array_like
+        Wavelengths [m] and their weights, shape (2, n_wl); the wavelengths are the
+        centres of equal bins, as STPSF makes them.
+    path : str, optional
+        Intensity transmission table of the substrate (WAVELENGTH [um], THROUGHPUT).
+
+    Returns
+    -------
+    numpy.ndarray
+        Wavelengths and weights, shape (2, n_wl); the weights keep their sum.
+
+    Notes
+    -----
+    The transmission is averaged over each wavelength bin. STPSF's filter throughputs
+    are imaging-mode curves, without the substrate the light crosses at the mask.
+    """
+    wavelengths, weights = np.asarray(wlen_weights, dtype=np.float64)
+    table = fits.getdata(path, 1)
+    width = np.diff(wavelengths).mean() if len(wavelengths) > 1 else 0.
+    samples = wavelengths[:, None] + width * ((np.arange(64) + 0.5) / 64 - 0.5)[None]
+    transmission = np.interp(samples * 1e6, table['WAVELENGTH'], table['THROUGHPUT']).mean(1)
+    weighted = weights * transmission
+    return np.array([wavelengths, weighted * weights.sum() / weighted.sum()])
 
 
 def generate_flux_rel_5sigma_fundamental_noise(fakes,noise_map,nsigma, mask_name='MASK335R', pixelscale=0.062, smooth_sigma_px=0.,annulus_size=4):
@@ -482,6 +528,10 @@ def calc_nfringes(
 
 
 
+def centred_axis(n, d=1., device=None):
+    """Sample coordinates of a centred axis, (j - (n - 1)/2) * d, in float64, shape (n,)."""
+    return (torch.arange(n, device=device, dtype=torch.float64) - (n - 1) / 2) * d
+
 def nd_coords(npixels, pixel_scales = 1.0, offsets=0.0, indexing: str = "xy",):
 
     if not isinstance(npixels, tuple):
@@ -492,8 +542,7 @@ def nd_coords(npixels, pixel_scales = 1.0, offsets=0.0, indexing: str = "xy",):
         offsets = (offsets,) * len(npixels)
 
     def pixel_fn(n, offset, scale):
-        pix = torch.arange(n) - (n - 1) / 2.0
-        pix *= scale
+        pix = centred_axis(n, scale)
         pix -= offset
         return pix
 
