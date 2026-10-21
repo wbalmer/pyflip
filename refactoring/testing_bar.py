@@ -70,7 +70,7 @@ np.save(save_dir+'/res2.npy', result)
 
 #### OPTIMIZER SETUP
 
-scheduler_iters = 15000 # Max number of iterations for LR scheduler: we can halt the optimization before but not after this
+scheduler_iters = 11000 # Max number of iterations for LR scheduler: we can halt the optimization before but not after this
 
 # Choose parameters that are going to be optimized, and assign them reasonable learning rates
 
@@ -147,7 +147,7 @@ ref = torch.from_numpy(ref).to(DEVICE)
 sci = torch.from_numpy(sci).to(DEVICE)
 
 ####### RUN OPTIMIZATION
-sci_loss_weight = 0.01 # How much to weigh down the loss function when evaluating on science target relative to reference target; essentially make optimization slower
+sci_loss_weight = 0.001 # How much to weigh down the loss function when evaluating on science target relative to reference target; essentially make optimization slower
 
 measure_SNR_every = 300 # measure the SNR of the fake planet(s) every how many iterations 
 
