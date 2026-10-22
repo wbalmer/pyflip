@@ -235,10 +235,10 @@ for i in tbar:
         track_iters.append(i)
 
         # also track lyot parameters
-        # lyot_rots.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.detach().cpu().numpy())
-        # lyot_xs.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.detach().cpu().numpy())
-        # lyot_ys.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.detach().cpu().numpy())
-        # lyot_scales.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.detach().cpu().numpy())
+        lyot_rots.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.detach().cpu().numpy())
+        lyot_xs.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.detach().cpu().numpy())
+        lyot_ys.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.detach().cpu().numpy())
+        lyot_scales.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.detach().cpu().numpy())
 
 # After everything, save these diagnostics and such 
 signal_peaks_arr = np.array(signal_peaks_arr)
@@ -246,24 +246,35 @@ signal_losses_arr = np.array(signal_losses_arr)
 snrs_arr = np.array(snrs_arr)
 track_iters = np.array(track_iters)
 
-# lyot_rots_arr = np.array(lyot_rots)
-# lyot_xs_arr = np.array(lyot_xs)
-# lyot_ys_arr = np.array(lyot_ys)
-# lyot_scales_arr = np.array(lyot_scales)
+lyot_rots_arr = np.array(lyot_rots)
+lyot_xs_arr = np.array(lyot_xs)
+lyot_ys_arr = np.array(lyot_ys)
+lyot_scales_arr = np.array(lyot_scales)
 
-# np.save(save_dir+'/lyot_rots.npy', lyot_rots_arr)
-# np.save(save_dir+'/lyot_xs.npy', lyot_xs_arr)
-# np.save(save_dir+'/lyot_xs.npy', lyot_ys_arr)
-# np.save(save_dir+'/lyot_scales.npy', lyot_scales_arr)
-
-# plt.figure()
-# plt.plot(np.arange(len(lyot_rots_arr)), lyot_rots_arr)
-# plt.title(lyot_rots_arr[-1])
-# plt.savefig(save_dir+'/lyot_rotation.png')
-# plt.close()
-
+np.save(save_dir+'/lyot_rots.npy', lyot_rots_arr)
+np.save(save_dir+'/lyot_xs.npy', lyot_xs_arr)
+np.save(save_dir+'/lyot_xs.npy', lyot_ys_arr)
+np.save(save_dir+'/lyot_scales.npy', lyot_scales_arr)
 
 plt.figure()
-plt.plot(track_iters, snrs)
-plt.savefig(save_dir+'/snr_v_time.png')
+plt.plot(np.arange(len(lyot_rots_arr)), lyot_rots_arr)
+plt.title(lyot_rots_arr[-1])
+plt.savefig(save_dir+'/lyot_rotation.png')
 plt.close()
+
+plt.figure()
+plt.plot(np.arange(len(lyot_xs_arr)), lyot_xs_arr)
+plt.title(lyot_rots_arr[-1])
+plt.savefig(save_dir+'/lyot_xshifts.png')
+plt.close()
+
+plt.figure()
+plt.plot(np.arange(len(lyot_ys_arr)), lyot_ys_arr)
+plt.title(lyot_rots_arr[-1])
+plt.savefig(save_dir+'/lyot_yshifts.png')
+plt.close()
+
+# plt.figure()
+# plt.plot(track_iters, snrs)
+# plt.savefig(save_dir+'/snr_v_time.png')
+# plt.close()
