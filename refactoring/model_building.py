@@ -288,7 +288,8 @@ def assemble_JWST_NIRCam_coron(data_dir,num_det_px,psf_pixel_scale=0.062424185,d
     else:
         NIRCam_FPM = DiffImageOptic(name='NIRCam coron focal plane mask',amplitude=torch.FloatTensor(fpm).to(DEVICE)[None],
                                   axial_offset=fpm_axial_offset, focal_length=fpm_focal_length)
-    NIRCam_Lyot = DiffLyotOptic(name='NIRCamLyotstop',opd=nircam_OPD, amplitude=lyot,
+    NIRCam_Lyot = DiffLyotOptic(name='NIRCamLyotstop',opd=nircam_OPD, 
+                                amplitude=torch.FloatTensor(lyot).to(DEVICE)[None],
                               axial_offset=lyot_axial_offset,
                               wfe_offsets=OPDOffsetModule(wf_npix, wf_npix, device=DEVICE))
 
