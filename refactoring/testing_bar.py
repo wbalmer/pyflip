@@ -138,7 +138,7 @@ sci, sci_noise = load_and_crop_data(scidatapath, num_det_px=80, coron_type='MASK
 
 # hack for now
 px_mask = np.ones_like(sci_noise[0])
-px_mask[np.where(np.isnan(sci_noise[0]))] = 0
+# px_mask[np.where(np.isnan(sci_noise[0]))] = 0
 
 px_mask = px_mask.astype(np.float32)
 px_mask_numpy = px_mask.copy()
@@ -157,7 +157,7 @@ ref = torch.from_numpy(ref).to(DEVICE)
 sci = torch.from_numpy(sci).to(DEVICE)
 
 ####### RUN OPTIMIZATION
-sci_loss_weight = 0.001 # How much to weigh down the loss function when evaluating on science target relative to reference target; essentially make optimization slower
+sci_loss_weight = 0.05 # How much to weigh down the loss function when evaluating on science target relative to reference target; essentially make optimization slower
 
 measure_SNR_every = 300 # measure the SNR of the fake planet(s) every how many iterations 
 
