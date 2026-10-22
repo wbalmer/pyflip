@@ -104,7 +104,7 @@ detector_flats = [
 lyot_geom = [
     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift,
     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift,
-    diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation,
+    # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation,
     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale
 ]
 

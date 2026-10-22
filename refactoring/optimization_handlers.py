@@ -14,7 +14,7 @@ def default_stages(instrument, wavefront, stage_number, stage_cutoffs = [600, 35
         
         instrument.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
         instrument.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-        instrument.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
+        # instrument.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
     
     elif stage_number > stage_cutoffs[0] and stage_number < stage_cutoffs[1]:
         # Stop fitting position and flux; only fit OPDs
