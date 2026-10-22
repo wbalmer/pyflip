@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=flip_sculpt  # Job name
-#SBATCH --output=/projects/b1094/balmer/flip_results/hd95086_f410m_bar/output.txt
-#SBATCH --error=/projects/b1094/balmer/flip_results/hd95086_f410m_bar/error.txt
+#SBATCH --job-name=flip_bar  # Job name
+#SBATCH --output=/projects/b1094/balmer/flip_results/hr2562_f410m_bar/output.txt
+#SBATCH --error=/projects/b1094/balmer/flip_results/hr2562_f410m_bar/error.txt
 #SBATCH --account=b53080              # allocation/account
 #SBATCH --partition=buyin             # Partition or queue name, debug, shared, wholenode
 #SBATCH --nodes=1                     # Number of nodes

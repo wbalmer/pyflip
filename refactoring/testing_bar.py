@@ -8,6 +8,7 @@ import numpy as np
 import tqdm
 import torch.nn.functional as F
 import stpsf
+import os
 import matplotlib.pyplot as plt
 from synphot.spectrum import SourceSpectrum
 
@@ -32,6 +33,8 @@ peak_flux_star  = nn.Parameter(torch.FloatTensor([1.]))
 project = "hr2562_f410m_bar"
 data_dir = '/projects/b1094/balmer/flip_data/hr2562/medsub/'
 save_dir = f"/projects/b1094/balmer/flip_results/{project}"
+
+os.makedirs(save_dir,exist_ok=True)
 
 refdatapath = data_dir+'/jw06905012001_03103_00001_nrcalong_calints.fits'
 scidatapath = data_dir+'/jw06905011001_03107_00001_nrcalong_calints.fits'
