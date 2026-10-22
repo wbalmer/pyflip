@@ -80,7 +80,7 @@ np.save(save_dir+'/res2.npy', result)
 
 #### OPTIMIZER SETUP
 
-scheduler_iters = 11000 # Max number of iterations for LR scheduler: we can halt the optimization before but not after this
+scheduler_iters = 18000 # Max number of iterations for LR scheduler: we can halt the optimization before but not after this
 
 # Choose parameters that are going to be optimized, and assign them reasonable learning rates
 
@@ -218,7 +218,7 @@ for i in tbar:
     optimizer.step()
     scheduler.step()
 
-    if i == stage_cutoffs[2] -1:
+    if i == stage_cutoffs[2]:
         # End of calibration!
         residual_ref = ref - PSF 
         residual_ref = residual_ref.detach().cpu().numpy()
