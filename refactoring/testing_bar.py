@@ -206,7 +206,7 @@ for i in tbar:
         print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad)
         print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts)
 
-    if i > stage_cutoffs[0] and i < stage_cutoffs[2]:
+    if i < stage_cutoffs[2]:
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
         diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
