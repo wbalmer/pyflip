@@ -22,14 +22,21 @@ from synphot.spectrum import SourceSpectrum
 
 peak_flux_star  = nn.Parameter(torch.FloatTensor([1.]))
 
-project = "hd95086_f410m_bar"
-data_dir = '/projects/b1094/balmer/flip_data/hd95086/medsub/'
+# project = "hd95086_f410m_bar"
+# data_dir = '/projects/b1094/balmer/flip_data/hd95086/medsub/'
+# save_dir = f"/projects/b1094/balmer/flip_results/{project}"
+
+# refdatapath = data_dir+'/jw06905006001_03103_00003_nrcalong_calints.fits'
+# scidatapath = data_dir+'/jw06905004001_03107_00001_nrcalong_calints.fits'
+
+project = "hr2562_f410m_bar"
+data_dir = '/projects/b1094/balmer/flip_data/hr2562/medsub/'
 save_dir = f"/projects/b1094/balmer/flip_results/{project}"
 
-refdatapath = data_dir+'/jw06905006001_03103_00003_nrcalong_calints.fits'
-scidatapath = data_dir+'/jw06905004001_03107_00001_nrcalong_calints.fits'
+refdatapath = data_dir+'/jw06905012001_03103_00001_nrcalong_calints.fits'
+scidatapath = data_dir+'/jw06905011001_03107_00001_nrcalong_calints.fits'
 
-spectrum_file = "/projects/b1094/balmer/flip_data/hd95086/HD95086A_BTNEXTGEN_SCALED_MU_JY.txt"
+# spectrum_file = "/projects/b1094/balmer/flip_data/hd95086/HD95086A_BTNEXTGEN_SCALED_MU_JY.txt"
 # spectrum_source = spectrum_file
 spectrum_source = None
 
@@ -50,7 +57,7 @@ instrument = create_STPSF_model(from_obs=scidatapath)
 
 instrument.options['pupil_shift_x'] = 0.0
 instrument.options['pupil_shift_y'] = 0.0
-instrument.options['pupil_rotation'] = 1.0
+instrument.options['pupil_rotation'] = 0.0
 
 generate_STPSF_model_params(instrument, spec_type='A1V', catalog_spec='phoenix', input_spectrum=spectrum_source, num_wl=21,oversample=2, folder_to_save=data_dir,return_data=False)
 
@@ -104,7 +111,7 @@ optimizer_argument = [
         {'params': opds, 'lr': 4e-9},
         {'params': star_position, 'lr': 4e-8},
         {'params': detector_flats, 'lr': 4e-6},
-        # {'params': lyot_geom, 'lr':4e-8}
+        {'params': lyot_geom, 'lr':4e-8}
     ]
 
 optimizer = torch.optim.AdamW(optimizer_argument, weight_decay=0.0)
@@ -190,27 +197,27 @@ for i in tbar:
 
     default_stages(diffnircam, wavefront_broad, i, stage_cutoffs=stage_cutoffs) # Zero-out (in-place) gradients of parameters we are not fitting at a given stage
 
-    # if i == 0:
-    #     print(wavefront_broad.angles_offset.grad)
-    #     print(wavefront_broad.angles_offset)
-    #     print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad)
-    #     print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts)
+    if i == 0:
+        print(wavefront_broad.angles_offset.grad)
+        print(wavefront_broad.angles_offset)
+        print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad)
+        print(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts)
 
-    # if i > stage_cutoffs[0] and i < stage_cutoffs[2]:
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-    #     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
-    # elif i > stage_cutoffs[2] and i < stage_cutoffs[3]:
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 0.
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 0.
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 0.
-    #     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 0.
-    # elif i > stage_cutoffs[3]:
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
-    #     diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
-    #     # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
+    if i > stage_cutoffs[0] and i < stage_cutoffs[2]:
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
+        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
+    elif i > stage_cutoffs[2] and i < stage_cutoffs[3]:
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 0.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 0.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 0.
+        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 0.
+    elif i > stage_cutoffs[3]:
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.grad *= 1.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.grad *= 1.
+        diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.grad *= 1.
+        # diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.grad *= 1.
 
     # Update parameters 
     optimizer.step()

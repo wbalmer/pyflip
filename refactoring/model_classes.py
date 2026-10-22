@@ -23,10 +23,10 @@ class ShiftModule(nn.Module):
     """
     def __init__(self, height, width, learn_scale=False, device=None):
         super(ShiftModule, self).__init__()
-        self.x_shift = nn.Parameter(torch.zeros(1, dtype=torch.float64), requires_grad=True)
-        self.y_shift = nn.Parameter(torch.zeros(1, dtype=torch.float64), requires_grad=True)
-        self.rotation = nn.Parameter(torch.zeros(1, dtype=torch.float64), requires_grad=True)
-        self.scale = nn.Parameter(torch.ones(1, dtype=torch.float64), requires_grad=learn_scale)
+        self.x_shift = nn.Parameter(torch.zeros(1, dtype=torch.float64).to(device), requires_grad=True)
+        self.y_shift = nn.Parameter(torch.zeros(1, dtype=torch.float64).to(device), requires_grad=True)
+        self.rotation = nn.Parameter(torch.zeros(1, dtype=torch.float64).to(device), requires_grad=True)
+        self.scale = nn.Parameter(torch.ones(1, dtype=torch.float64).to(device), requires_grad=learn_scale)
         self.register_buffer('y', centred_axis(height)[:, None])
         self.register_buffer('x', centred_axis(width)[None, :])
         if device is not None:
