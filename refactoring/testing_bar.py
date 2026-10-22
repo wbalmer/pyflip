@@ -132,11 +132,11 @@ ref, ref_noise = load_and_crop_data(refdatapath, num_det_px=80, coron_type='MASK
 sci, sci_noise = load_and_crop_data(scidatapath, num_det_px=80, coron_type='MASKLWBAR_NARROW')
 
 fig, ax = plt.subplots(2,2)
-ax[0,0].imshow(sci)
-ax[0,1].imshow(sci_noise)
+ax[0,0].imshow(sci[0])
+ax[0,1].imshow(sci_noise[0])
 
-ax[1,0].imshow(ref)
-ax[1,1].imshow(ref_noise)
+ax[1,0].imshow(ref[0])
+ax[1,1].imshow(ref_noise[0])
 plt.savefig(save_dir+'/cropped_data.png')
 
 # Array with 0s and 1s, used to mask certain pixels (e.g., dead or hot pixels) from contributing to the loss function
