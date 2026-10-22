@@ -114,8 +114,8 @@ optimizer_argument = [
         {'params': opds, 'lr': 4e-9},
         {'params': star_position, 'lr': 4e-8},
         {'params': detector_flats, 'lr': 4e-6},
-        # {'params': lyot_geom, 'lr':4e-8}
-    ]
+        {'params': lyot_geom, 'lr':4e-8}
+]
 
 optimizer = torch.optim.AdamW(optimizer_argument, weight_decay=0.0)
 
@@ -165,9 +165,9 @@ ref = torch.from_numpy(ref).to(DEVICE)
 sci = torch.from_numpy(sci).to(DEVICE)
 
 ####### RUN OPTIMIZATION
-sci_loss_weight = 0.05 # How much to weigh down the loss function when evaluating on science target relative to reference target; essentially make optimization slower
+sci_loss_weight = 0.01 # How much to weigh down the loss function when evaluating on science target relative to reference target; essentially make optimization slower
 
-measure_SNR_every = 100 # measure the SNR of the fake planet(s) every how many iterations 
+measure_SNR_every = 300 # measure the SNR of the fake planet(s) every how many iterations 
 
 stage_cutoffs = [600, 3500, 5500, 6100, 11000] # Iterations separating stage 1.1, 1.2, 1.3, 2.1 and 2.2 in our default stage framework
 
@@ -230,22 +230,6 @@ for i in tbar:
         residual_sci = residual_sci.detach().cpu().numpy()
         np.save(save_dir+'/residual_sci.npy', residual_sci)
         break
-
-    # Now, track reference sub
-    if i%measure_SNR_every == 0 and i < stage_cutoffs[2]: # only measure in reference target
-        residual_sci = ref - PSF 
-        residual_sci = residual_sci.detach().cpu().numpy()
-        signal_peaks, signal_losses, snrs = track_SNR(residual_sci, i, fakes, injected_fluxes,mask_name='MASKLWBAR_NARROW', snr_smooth_sigma=1., px_mask_numpy=px_mask_numpy)
-        signal_peaks_arr.append(signal_peaks)
-        signal_losses_arr.append(signal_losses)
-        snrs_arr.append(snrs)
-        track_iters.append(i)
-
-        # also track lyot parameters
-        lyot_rots.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.rotation.detach().cpu().numpy())
-        lyot_xs.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.x_shift.detach().cpu().numpy())
-        lyot_ys.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.y_shift.detach().cpu().numpy())
-        lyot_scales.append(diffnircam.optical_system.NIRCamLyotstop.pupil_shifts.scale.detach().cpu().numpy())
 
     # Now, track SNR of injected planet(s)
     if i%measure_SNR_every == 0 and i > stage_cutoffs[2]: # only measure in science target
