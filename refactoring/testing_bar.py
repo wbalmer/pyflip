@@ -23,21 +23,21 @@ from synphot.spectrum import SourceSpectrum
 
 peak_flux_star  = nn.Parameter(torch.FloatTensor([1.]))
 
-# project = "hd95086_f410m_bar"
-# data_dir = '/projects/b1094/balmer/flip_data/hd95086/medsub/'
-# save_dir = f"/projects/b1094/balmer/flip_results/{project}"
-
-# refdatapath = data_dir+'/jw06905006001_03103_00003_nrcalong_calints.fits'
-# scidatapath = data_dir+'/jw06905004001_03107_00001_nrcalong_calints.fits'
-
-project = "hr2562_f410m_bar"
-data_dir = '/projects/b1094/balmer/flip_data/hr2562/medsub/'
+project = "hd95086_f410m_bar"
+data_dir = '/projects/b1094/balmer/flip_data/hd95086/medsub/'
 save_dir = f"/projects/b1094/balmer/flip_results/{project}"
 
-os.makedirs(save_dir,exist_ok=True)
+refdatapath = data_dir+'/jw06905006001_03103_00003_nrcalong_calints.fits'
+scidatapath = data_dir+'/jw06905004001_03107_00001_nrcalong_calints.fits'
 
-refdatapath = data_dir+'/jw06905012001_03103_00001_nrcalong_calints.fits'
-scidatapath = data_dir+'/jw06905011001_03107_00001_nrcalong_calints.fits'
+# project = "hr2562_f410m_bar"
+# data_dir = '/projects/b1094/balmer/flip_data/hr2562/medsub/'
+# save_dir = f"/projects/b1094/balmer/flip_results/{project}"
+
+# refdatapath = data_dir+'/jw06905012001_03103_00001_nrcalong_calints.fits'
+# scidatapath = data_dir+'/jw06905011001_03107_00001_nrcalong_calints.fits'
+
+os.makedirs(save_dir,exist_ok=True)
 
 # spectrum_file = "/projects/b1094/balmer/flip_data/hd95086/HD95086A_BTNEXTGEN_SCALED_MU_JY.txt"
 # spectrum_source = spectrum_file
@@ -155,7 +155,7 @@ px_mask = torch.from_numpy(px_mask).to(DEVICE)[None]
 ### Inject planet(s) and such to track SNR
 # Only needed on science target really
 
-flux_n_5_sigma = 5 # inject planet 5 times brighter than the 5 sigma photon noise limit
+flux_n_5_sigma = 10 # inject planet 5 times brighter than the 5 sigma photon noise limit
 
 fakes = [{'pos_x_px':5., 'pos_y_px': -10.}] # fake planet locations, relative to center of the array, in px
 
